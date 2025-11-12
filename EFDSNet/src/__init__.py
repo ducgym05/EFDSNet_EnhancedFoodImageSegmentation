@@ -1,2 +1,0 @@
-
-from .FDSNet import FDSNet

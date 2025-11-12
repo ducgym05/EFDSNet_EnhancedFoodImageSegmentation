@@ -1,1 +1,0 @@
-python train2.py --data-path "C:\Users\Dien Dong\Pictures\DPL302m\dataset"
