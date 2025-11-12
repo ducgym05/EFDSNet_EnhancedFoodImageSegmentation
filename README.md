@@ -10,4 +10,4 @@ FoodSeg103：[Link](https://github.com/LARC-CMU-SMU/FoodSeg103-Benchmark-v1)
 
 UECFoodPixComplete:[Link](https://mm.cs.uec.ac.jp/uecfoodpix/)
 
-# Current Enhancement Journal: [DPL302m_Template (1).pdf](https://github.com/user-attachments/files/23491271/DPL302m_Template.1.pdf)
+# Current Enhancement Report: [DPL302m_Template (1).pdf](https://github.com/user-attachments/files/23491271/DPL302m_Template.1.pdf)
