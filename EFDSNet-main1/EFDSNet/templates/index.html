@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calories Estimator</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 20px; background-color: #f4f7f6; }
+        .container { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { padding: 20px; border-bottom: 1px solid #eee; text-align: center; }
+        .content { padding: 20px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input[type="file"], .form-group input[type="number"] { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        #submitBtn { width: 100%; padding: 12px; background-color: #007bff; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; }
+        #submitBtn:disabled { background-color: #ccc; }
+        #loader { display: none; text-align: center; padding: 20px; }
+        #results { display: none; margin-top: 20px; }
+        #results h3 { text-align: center; }
+        
+        #resultTable { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        #resultTable th, #resultTable td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: middle; }
+        #resultTable th { background-color: #f2f2f2; }
+        .preview { max-width: 100%; height: auto; margin-top: 10px; border-radius: 4px; border: 1px dashed #ccc; padding: 5px; }
+        #error { display: none; color: red; text-align: center; margin-top: 10px; }
+        .color-swatch {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 1px solid #888;
+            vertical-align: middle;
+            border-radius: 3px;
+        }
+        #resultTable th:first-child, #resultTable td:first-child {
+            width: 30px; text-align: center;
+        }
+
+        /* CSS CHO 2 ẢNH VÀ NHÃN */
+        .image-results-wrapper {
+            display: flex;
+            gap: 15px;
+            width: 100%;
+        }
+        .image-container {
+            flex: 1; 
+            width: 50%;
+            position: relative;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            padding: 5px;
+            box-sizing: border-box;
+            display: none; /* Mặc định ẩn, JS sẽ cho hiện */
+        }
+        .image-container h4 {
+            text-align: center;
+            margin: 5px 0 10px 0;
+            font-weight: 600;
+        }
+        .image-container img {
+            width: 100%; 
+            height: auto;
+            display: block;
+            border-radius: 3px;
+        }
+
+        /* Style cho nhãn tên món ăn (chữ nhỏ) */
+        .food-label {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border-radius: 3px;
+            pointer-events: none;
+            white-space: nowrap;
+            font-size: 10px; 
+            font-weight: 500;
+            padding: 1px 3px;
+            transform: translate(-50%, -50%);
+        }
+
+        /* (THAY ĐỔI) CSS CHO CHECKBOX */
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            /* (MỚI) Thêm lề trên để tách khỏi ảnh */
+            margin-top: 10px; 
+            padding: 5px 0;
+        }
+        .checkbox-group input[type="checkbox"] {
+            width: auto; 
+            margin-right: 10px;
+        }
+        .checkbox-group label {
+            margin-bottom: 0;
+            font-weight: normal;
+        }
+
+        /* CSS CHO HIỂN THỊ THỜI GIAN */
+        .timing-info {
+            text-align: center;
+            font-size: 14px;
+            color: #555;
+            margin: 15px 0;
+            padding: 10px;
+            background: #f9f9f9;
+            border-radius: 4px;
+        }
+        .timing-info p { margin: 5px 0; }
+
+        /* CSS CHO DI ĐỘNG (Xếp chồng ảnh) */
+        @media (max-width: 768px) {
+            .image-results-wrapper {
+                flex-direction: column; 
+            }
+            .image-container {
+                width: 100%; 
+            }
+            .content { padding: 10px; }
+        }
+        
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header">
+            <h2>Calories Estimator</h2>
+        </div>
+        <div class="content">
+            <form id="uploadForm">
+                <div class="form-group">
+                    <label for="imageInput">Select picture:</label>
+                    <input type="file" id="imageInput" accept="image/jpeg, image/png" required>
+                    <img id="imagePreview" class="preview" src="#" alt="Xem trước ảnh" style="display:none;"/>
+                </div>
+                
+                <button type="submit" id="submitBtn">Submit</button>
+            </form>
+
+            <div id="loader">
+                <p>Processing, please wait...</p>
+                <p>(This may take 10-20 seconds.)</p>
+            </div>
+
+            <div id="error"></div>
+
+            <div id="results">
+                <h3>Result</h3>
+                
+                <div class="timing-info">
+                    <p id="timeProcessing"></p>
+                    <p id="timeCalc"></p>
+                </div>
+
+                <div class="image-results-wrapper">
+                    <div class="image-container" id="mask-container">
+                        <h4>Segmentation Image </h4>
+                        <img id="resultImageMask" src="" alt="Segmentation Image"/>
+                        
+                        <div class="form-group checkbox-group">
+                            <input type="checkbox" id="showBlended">
+                            <label for="showBlended">Export Blended Image</label>
+                        </div>
+                    </div>
+                    
+                    <div class="image-container" id="blended-container">
+                        <h4>Blended Image </h4>
+                        <img id="resultImageBlended" src="" alt="Ảnh Kết hợp"/>
+                    </div>
+                </div>
+
+                <h4 id="totalCalories"></h4>
+                <table id="resultTable">
+                    <thead>
+                        <tr>
+                            <th>Color</th>
+                            <th>Ingredients</th>
+                            <th>Weight (g)</th>
+                            <th>Calories (kcal)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('uploadForm');
+        const imageInput = document.getElementById('imageInput');
+        // (ĐÃ XÓA) const weightInput = ...
+        const submitBtn = document.getElementById('submitBtn');
+        const loader = document.getElementById('loader');
+        const resultsDiv = document.getElementById('results');
+        const errorDiv = document.getElementById('error');
+        const imagePreview = document.getElementById('imagePreview');
+        const tableBody = document.getElementById('tableBody');
+        const totalCalories = document.getElementById('totalCalories');
+        
+        const maskContainer = document.getElementById('mask-container'); 
+        const blendedContainer = document.getElementById('blended-container');
+        const resultImageMask = document.getElementById('resultImageMask');
+        const resultImageBlended = document.getElementById('resultImageBlended');
+        const showBlendedCheckbox = document.getElementById('showBlended'); 
+        const timeProcessingEl = document.getElementById('timeProcessing'); 
+        const timeCalcEl = document.getElementById('timeCalc');
+
+        // Xem trước ảnh
+        imageInput.onchange = evt => {
+            const [file] = imageInput.files;
+            if (file) {
+                imagePreview.src = URL.createObjectURL(file);
+                imagePreview.style.display = 'block';
+            }
+        };
+
+        // Gửi form
+        form.onsubmit = async (e) => {
+            e.preventDefault(); 
+            const file = imageInput.files[0];
+            // (ĐÃ XÓA) const weight = ...
+            if (!file) { // (THAY ĐỔI) Chỉ kiểm tra file
+                showError("Please input image.");
+                return;
+            }
+            const formData = new FormData();
+            formData.append('image', file);
+            // (ĐÃ XÓA) formData.append('weight', weight);
+            
+            showLoading(true);
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Unknown Error.');
+                }
+                displayResults(data);
+            } catch (err) {
+                console.error("Error:", err);
+                showError(err.message);
+            } finally {
+                showLoading(false);
+            }
+        };
+
+        // (MỚI) Thêm sự kiện 'change' cho checkbox
+        showBlendedCheckbox.addEventListener('change', (event) => {
+            if (event.currentTarget.checked) {
+                blendedContainer.style.display = 'block';
+            } else {
+                blendedContainer.style.display = 'none';
+            }
+        });
+
+        function showLoading(isLoading) {
+            if (isLoading) {
+                loader.style.display = 'block';
+                submitBtn.disabled = true;
+                resultsDiv.style.display = 'none';
+                errorDiv.style.display = 'none';
+            } else {
+                loader.style.display = 'none';
+                submitBtn.disabled = false;
+            }
+        }
+
+        function showError(message) {
+            errorDiv.textContent = `ERROR: ${message}`;
+            errorDiv.style.display = 'block';
+            resultsDiv.style.display = 'none';
+        }
+
+        // === HÀM DISPLAYRESULTS (CẬP NHẬT LOGIC) ===
+        function displayResults(data) {
+            resultsDiv.style.display = 'block';
+            errorDiv.style.display = 'none';
+
+            // (THAY ĐỔI) Xóa logic đọc checkbox ở đây
+
+            // 1. Hiển thị thời gian
+            timeProcessingEl.textContent = `Total processing and export time: ${data.time_processing_seconds.toFixed(2)}s`;
+            timeCalcEl.textContent = `Total calories calculating time: ${data.time_calc_seconds.toFixed(2)}s`;
+
+            // 2. Luôn hiển thị ảnh Mask
+            resultImageMask.src = 'data:image/png;base64,' + data.segmentation_image_base64;
+            maskContainer.style.display = 'block'; 
+
+            // 3. Hiển thị tổng calo (Giờ là trọng lượng ước lượng)
+            totalCalories.textContent = `Estimated calories: ${data.total_calories_kcal} kcal ( ${data.total_weight_g}g)`;
+
+            // 4. Xóa bảng cũ VÀ các nhãn ảnh cũ
+            tableBody.innerHTML = ''; 
+            blendedContainer.querySelectorAll('.food-label').forEach(el => el.remove());
+
+            // 5. (THAY ĐỔI) Luôn nạp dữ liệu cho ảnh Blended, nhưng ẩn nó đi
+            resultImageBlended.src = 'data:image/png;base64,' + data.blended_image_base64;
+            blendedContainer.style.display = 'none'; // Bắt đầu ẩn
+            showBlendedCheckbox.checked = false; // Đặt lại checkbox về "tắt"
+
+            // 6. Xây dựng bảng VÀ các nhãn ảnh (luôn luôn)
+            if (data.detected_items.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Not detecting food.</td></tr>';
+            } else {
+                data.detected_items.forEach(item => {
+                    // 6a. Thêm dòng vào bảng
+                    const row = `
+                        <tr>
+                            <td>
+                                <span class="color-swatch" style="background-color: ${item.color_css};"></span>
+                            </td>
+                            <td>${item.name}</td>
+                            <td>${item.weight_g}</td>
+                            <td>${item.calories_kcal}</td>
+                        </tr>
+                    `;
+                    tableBody.innerHTML += row;
+
+                    // 6b. Thêm nhãn vào container (dù nó đang ẩn)
+                    const label = document.createElement('span');
+                    label.className = 'food-label';
+                    label.textContent = item.name;
+                    label.style.left = item.center_x_percent + '%';
+                    label.style.top = item.center_y_percent + '%';
+                    blendedContainer.appendChild(label);
+                });
+            }
+        }
+    </script>
+</body>
+</html>
